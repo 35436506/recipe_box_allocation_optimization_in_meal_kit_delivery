@@ -4,21 +4,26 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from openpyxl import Workbook
+from matplotlib.patches import Circle
 
 # Set random seed for reproducibility
 random.seed(42)
 
-# Define total orders and factory capacities
-TOTAL_ORDERS = 10000
-F1_CAP = int(0.25 * TOTAL_ORDERS)
-F2_CAP = int(0.5 * TOTAL_ORDERS)
-FACTORY_CAPACITIES = {'F1': F1_CAP, 'F2': F2_CAP, 'F3': float('inf')}
+# Define the recipes with their eligibility
+recipes_f1_only = list(range(1, 30))
+recipes_f1_f2 = list(range(30, 50))
+recipes_f2_only = list(range(50, 90))
+recipes_f3_only = list(range(90, 101))
 
-# Define recipe ranges for each factory
-RECIPES_F1_ONLY = list(range(1, 30))
-RECIPES_F1_F2 = list(range(30, 50))
-RECIPES_F2_ONLY = list(range(50, 90))
-RECIPES_F3_ONLY = list(range(90, 101))
+# Define total orders and factory capacities
+total_orders = 10000
+F1_cap = int(0.25 * total_orders)  # 25% of total orders
+F2_cap = int(0.5 * total_orders)  # 50% of total orders
+factory_capacities = {
+    'F1': F1_cap,
+    'F2': F2_cap,
+    'F3': float('inf')  # F3 has unlimited capacity
+}
 
 # Generate a list of recipe IDs for an order
 def generate_order_recipes(eligible_recipes, max_recipes=4):
@@ -27,31 +32,31 @@ def generate_order_recipes(eligible_recipes, max_recipes=4):
 # Generate orders for a day, including both real and simulated orders
 def generate_orders_for_day(real_proportion, simulated_proportion, existing_real_orders=None):
     orders = []
-    f1_f3_target = int(0.3 * TOTAL_ORDERS)
-    f2_f3_target = int(0.6 * TOTAL_ORDERS)
-    f1_f2_f3_target = int(0.1 * TOTAL_ORDERS)
+    f1_f3_target = int(0.3 * total_orders)
+    f2_f3_target = int(0.6 * total_orders)
+    f1_f2_f3_target = int(0.1 * total_orders)
     
-    total_real_orders = int(real_proportion * TOTAL_ORDERS)
-    available_ids = set(range(1, TOTAL_ORDERS + 1))
+    total_real_orders = int(real_proportion * total_orders)
+    available_ids = set(range(1, total_orders + 1))
     
     if existing_real_orders:
         orders.extend([order.copy() for order in existing_real_orders])
         for order in orders:
             available_ids.remove(order['id'])
     
-    while len(orders) < TOTAL_ORDERS:
+    while len(orders) < total_orders:
         if len([o for o in orders if set(o['eligible_factories']) == {'F1', 'F2', 'F3'}]) < f1_f2_f3_target:
-            recipe_ids = generate_order_recipes(RECIPES_F1_F2)
+            recipe_ids = generate_order_recipes(recipes_f1_f2)
             eligible_factories = ['F1', 'F2', 'F3']
         elif len([o for o in orders if set(o['eligible_factories']) == {'F1', 'F3'}]) < f1_f3_target - f1_f2_f3_target:
-            recipe_ids = generate_order_recipes(RECIPES_F1_ONLY)
+            recipe_ids = generate_order_recipes(recipes_f1_only)
             eligible_factories = ['F1', 'F3']
         elif len([o for o in orders if set(o['eligible_factories']) == {'F2', 'F3'}]) < f2_f3_target - f1_f2_f3_target:
-            recipe_ids = generate_order_recipes(RECIPES_F2_ONLY)
+            recipe_ids = generate_order_recipes(recipes_f2_only)
             eligible_factories = ['F2', 'F3']
         else:
-            f3_recipe = random.choice(RECIPES_F3_ONLY)
-            all_recipes = RECIPES_F1_ONLY + RECIPES_F1_F2 + RECIPES_F2_ONLY + RECIPES_F3_ONLY
+            f3_recipe = random.choice(recipes_f3_only)
+            all_recipes = recipes_f1_only + recipes_f1_f2 + recipes_f2_only + recipes_f3_only
             remaining_recipes = random.sample(all_recipes, min(3, random.randint(0, 3)))
             recipe_ids = [f3_recipe] + remaining_recipes
             random.shuffle(recipe_ids)
@@ -114,7 +119,7 @@ def print_order_statistics(orders, day):
 
 # Count the number of recipes allocated to each factory
 def get_recipe_counts(orders, allocation):
-    recipe_counts = {f: {} for f in FACTORY_CAPACITIES.keys()}
+    recipe_counts = {f: {} for f in factory_capacities.keys()}
     for factory, order_ids in allocation.items():
         for order_id in order_ids:
             if isinstance(order_id, dict):
@@ -223,6 +228,63 @@ def print_allocation_details(allocation):
         print(f"  F1,F2,F3: {sum(1 for o in orders if set(o['eligible_factories']) == {'F1', 'F2', 'F3'})}")
         print(f"  F3 only: {sum(1 for o in orders if o['eligible_factories'] == ['F3'])}")
 
+# Create Venn diagram to show order distribution among factories
+def plot_venn_diagram(orders):
+    # Calculate values for each region
+    f1_f3 = sum(1 for order in orders if set(order['eligible_factories']) == {'F1', 'F3'})
+    f2_f3 = sum(1 for order in orders if set(order['eligible_factories']) == {'F2', 'F3'})
+    f1_f2_f3 = sum(1 for order in orders if set(order['eligible_factories']) == {'F1', 'F2', 'F3'})
+    f3_only = sum(1 for order in orders if order['eligible_factories'] == ['F3'])
+    
+    # Set up the plot with a square aspect ratio
+    fig, ax = plt.subplots(figsize=(10, 10))
+    
+    # Define circle properties with more differentiated colors
+    f3_color = 'white'  # White
+    f2_color = '#98FB98'  # Pale green
+    f1_color = '#FFB6C1'  # Light pink
+    
+    # Draw circles with adjusted positions and sizes
+    f3 = Circle((0.5, 0.5), 0.45, fc=f3_color, ec='black', alpha=0.6)
+    f2 = Circle((0.62, 0.5), 0.3, fc=f2_color, ec='black', alpha=0.6)
+    f1 = Circle((0.3, 0.5), 0.22, fc=f1_color, ec='black', alpha=0.6)
+    
+    # Add circles to the plot
+    ax.add_patch(f3)
+    ax.add_patch(f2)
+    ax.add_patch(f1)
+    
+    # Add text labels with adjusted positions
+    plt.text(0.25, 0.5, str(f1_f3), ha='center', va='center', fontsize=14)
+    plt.text(0.45, 0.5, str(f1_f2_f3), ha='center', va='center', fontsize=14)
+    plt.text(0.7, 0.5, str(f2_f3), ha='center', va='center', fontsize=14)
+    plt.text(0.3, 0.25, 'F1', ha='center', va='center', fontsize=16, fontweight='bold')
+    plt.text(0.75, 0.2, 'F2', ha='center', va='center', fontsize=16, fontweight='bold')
+    plt.text(0.3, 0.95, f'F3: {f1_f3 + f1_f2_f3 + f2_f3 + f3_only}', ha='center', va='center', fontsize=16, fontweight='bold')
+    
+    # Add "Only F3" label
+    plt.text(0.4, 0.8, str(f3_only), ha='center', va='center', fontsize=16)
+    
+    # Set axis limits and remove ticks
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+    # Ensure the aspect ratio is equal
+    ax.set_aspect('equal', adjustable='box')
+    
+    # Remove the border
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    
+    # Add title
+    plt.title('Quantity of orders eligible for each factory', fontsize=18, fontweight='bold')
+    
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
+
 # Export the allocation results and WMAPE calculations to an Excel file
 def export_to_excel(orders_t_minus_1, orders_t, allocation_t_minus_1, allocation_t, wmape_site, wmape_global):
     workbook = Workbook()
@@ -329,6 +391,9 @@ orders_t_minus_1 = generate_orders_for_day(0.46, 0.54)
 # Print statistics for day -12
 print_order_statistics(orders_t_minus_1, "-12")
 
+# Plot Venn diagram for day -12
+plot_venn_diagram(orders_t_minus_1)
+
 # Extract real orders from day -12
 real_orders_t_minus_1 = [order for order in orders_t_minus_1 if order['is_real']]
 
@@ -339,7 +404,7 @@ orders_t = generate_orders_for_day(0.52, 0.48, existing_real_orders=real_orders_
 print_order_statistics(orders_t, "-11")
 
 # Perform allocation for day -12
-allocation_t_minus_1 = allocate_orders(orders_t_minus_1, FACTORY_CAPACITIES)
+allocation_t_minus_1 = allocate_orders(orders_t_minus_1, factory_capacities)
 
 # Get recipe counts for day -12
 recipe_counts_t_minus_1 = get_recipe_counts(orders_t_minus_1, allocation_t_minus_1)
@@ -351,25 +416,25 @@ start_time_optimization = time_module.time()
 prob = LpProblem("Order_Allocation", LpMinimize)
 
 # Create binary variables for order allocation
-x = LpVariable.dicts("allocation", [(o['id'], f) for o in orders_t for f in FACTORY_CAPACITIES.keys()], cat='Binary')
+x = LpVariable.dicts("allocation", [(o['id'], f) for o in orders_t for f in factory_capacities.keys()], cat='Binary')
 
 # Add constraints to ensure each order is allocated to exactly one factory
 for o in orders_t:
-    prob += lpSum([x[o['id'], f] for f in FACTORY_CAPACITIES.keys()]) == 1
+    prob += lpSum([x[o['id'], f] for f in factory_capacities.keys()]) == 1
 
 # Add constraints to ensure orders are only allocated to eligible factories
 for o in orders_t:
-    for f in FACTORY_CAPACITIES.keys():
+    for f in factory_capacities.keys():
         if f not in o['eligible_factories']:
             prob += x[o['id'], f] == 0
 
 # Add capacity constraints for F1 and F2
-prob += lpSum([x[o['id'], 'F1'] for o in orders_t]) == FACTORY_CAPACITIES['F1']
-prob += lpSum([x[o['id'], 'F2'] for o in orders_t]) == FACTORY_CAPACITIES['F2']
+prob += lpSum([x[o['id'], 'F1'] for o in orders_t]) == factory_capacities['F1']
+prob += lpSum([x[o['id'], 'F2'] for o in orders_t]) == factory_capacities['F2']
 
 # Calculate recipe counts for day t based on allocation
 recipe_counts_t = {}
-for f in FACTORY_CAPACITIES.keys():
+for f in factory_capacities.keys():
     for o in orders_t:
         for r in o['recipe_ids']:
             if r not in recipe_counts_t:
@@ -381,7 +446,7 @@ for f in FACTORY_CAPACITIES.keys():
 # Calculate absolute differences for WMAPE site
 abs_diffs = []
 for r in set(recipe_counts_t.keys()) | set(sum((list(counts.keys()) for counts in recipe_counts_t_minus_1.values()), [])):
-    for f in FACTORY_CAPACITIES.keys():
+    for f in factory_capacities.keys():
         t_minus_1_count = recipe_counts_t_minus_1[f].get(r, 0)
         t_count = recipe_counts_t.get(r, {}).get(f, 0)
         
@@ -402,9 +467,9 @@ end_time_optimization = time_module.time()
 optimization_time = end_time_optimization - start_time_optimization
 
 # Extract the allocation
-allocation_t = {f: [] for f in FACTORY_CAPACITIES.keys()}
+allocation_t = {f: [] for f in factory_capacities.keys()}
 for o in orders_t:
-    for f in FACTORY_CAPACITIES.keys():
+    for f in factory_capacities.keys():
         if value(x[o['id'], f]) == 1:
             allocation_t[f].append(o['id'])
 
@@ -414,7 +479,7 @@ total_abs_diff = 0
 total_items = 0
 
 for r in set(sum((list(counts.keys()) for counts in recipe_counts_t_minus_1.values()), [])) | set(sum((list(counts.keys()) for counts in recipe_counts_t.values()), [])):
-    for f in FACTORY_CAPACITIES.keys():
+    for f in factory_capacities.keys():
         t_minus_1_count = recipe_counts_t_minus_1[f].get(r, 0)
         t_count = recipe_counts_t[f].get(r, 0)
         total_abs_diff += abs(t_count - t_minus_1_count)
@@ -451,8 +516,8 @@ print(f"Gap between WMAPE site and global: {wmape_gap:.2f} ({wmape_gap_percentag
 print(f"Optimization time: {optimization_time:.2f} seconds")
 
 # Plot allocations
-plot_allocation(allocation_t_minus_1, 'Allocation for Day -12', FACTORY_CAPACITIES)
-plot_allocation({f: [o for o in orders_t if o['id'] in ids] for f, ids in allocation_t.items()}, 'Allocation for Day -11 (B&B)', FACTORY_CAPACITIES)
+plot_allocation(allocation_t_minus_1, 'Allocation for Day -12', factory_capacities)
+plot_allocation({f: [o for o in orders_t if o['id'] in ids] for f, ids in allocation_t.items()}, 'Allocation for Day -11 (B&B)', factory_capacities)
 
 # Export results to Excel
 export_to_excel(orders_t_minus_1, orders_t, allocation_t_minus_1, allocation_t, wmape_site, wmape_global)

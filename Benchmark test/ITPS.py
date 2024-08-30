@@ -8,17 +8,21 @@ from collections import defaultdict
 # Set random seed for reproducibility
 random.seed(42)
 
-# Define total orders and factory capacities
-TOTAL_ORDERS = 10000
-F1_CAP = int(0.25 * TOTAL_ORDERS)
-F2_CAP = int(0.5 * TOTAL_ORDERS)
-FACTORY_CAPACITIES = {'F1': F1_CAP, 'F2': F2_CAP, 'F3': float('inf')}
+# Define the recipes with their eligibility
+recipes_f1_only = list(range(1, 30))
+recipes_f1_f2 = list(range(30, 50))
+recipes_f2_only = list(range(50, 90))
+recipes_f3_only = list(range(90, 101))
 
-# Define recipe ranges for each factory
-RECIPES_F1_ONLY = list(range(1, 30))
-RECIPES_F1_F2 = list(range(30, 50))
-RECIPES_F2_ONLY = list(range(50, 90))
-RECIPES_F3_ONLY = list(range(90, 101))
+# Define total orders and factory capacities
+total_orders = 1000
+F1_cap = int(0.25 * total_orders)  # 25% of total orders
+F2_cap = int(0.5 * total_orders)  # 50% of total orders
+factory_capacities = {
+    'F1': F1_cap,
+    'F2': F2_cap,
+    'F3': float('inf')  # F3 has unlimited capacity
+}
 
 # Generate a list of recipe IDs for an order
 def generate_order_recipes(eligible_recipes, max_recipes=4):
@@ -27,31 +31,31 @@ def generate_order_recipes(eligible_recipes, max_recipes=4):
 # Generate orders for a day, including both real and simulated orders
 def generate_orders_for_day(real_proportion, simulated_proportion, existing_real_orders=None):
     orders = []
-    f1_f3_target = int(0.3 * TOTAL_ORDERS)
-    f2_f3_target = int(0.6 * TOTAL_ORDERS)
-    f1_f2_f3_target = int(0.1 * TOTAL_ORDERS)
+    f1_f3_target = int(0.3 * total_orders)
+    f2_f3_target = int(0.6 * total_orders)
+    f1_f2_f3_target = int(0.1 * total_orders)
     
-    total_real_orders = int(real_proportion * TOTAL_ORDERS)
-    available_ids = set(range(1, TOTAL_ORDERS + 1))
+    total_real_orders = int(real_proportion * total_orders)
+    available_ids = set(range(1, total_orders + 1))
     
     if existing_real_orders:
         orders.extend([order.copy() for order in existing_real_orders])
         for order in orders:
             available_ids.remove(order['id'])
     
-    while len(orders) < TOTAL_ORDERS:
+    while len(orders) < total_orders:
         if len([o for o in orders if set(o['eligible_factories']) == {'F1', 'F2', 'F3'}]) < f1_f2_f3_target:
-            recipe_ids = generate_order_recipes(RECIPES_F1_F2)
+            recipe_ids = generate_order_recipes(recipes_f1_f2)
             eligible_factories = ['F1', 'F2', 'F3']
         elif len([o for o in orders if set(o['eligible_factories']) == {'F1', 'F3'}]) < f1_f3_target - f1_f2_f3_target:
-            recipe_ids = generate_order_recipes(RECIPES_F1_ONLY)
+            recipe_ids = generate_order_recipes(recipes_f1_only)
             eligible_factories = ['F1', 'F3']
         elif len([o for o in orders if set(o['eligible_factories']) == {'F2', 'F3'}]) < f2_f3_target - f1_f2_f3_target:
-            recipe_ids = generate_order_recipes(RECIPES_F2_ONLY)
+            recipe_ids = generate_order_recipes(recipes_f2_only)
             eligible_factories = ['F2', 'F3']
         else:
-            f3_recipe = random.choice(RECIPES_F3_ONLY)
-            all_recipes = RECIPES_F1_ONLY + RECIPES_F1_F2 + RECIPES_F2_ONLY + RECIPES_F3_ONLY
+            f3_recipe = random.choice(recipes_f3_only)
+            all_recipes = recipes_f1_only + recipes_f1_f2 + recipes_f2_only + recipes_f3_only
             remaining_recipes = random.sample(all_recipes, min(3, random.randint(0, 3)))
             recipe_ids = [f3_recipe] + remaining_recipes
             random.shuffle(recipe_ids)
@@ -127,7 +131,7 @@ def plot_allocation(allocation, day):
 
     max_capacity_line = None
     for i, factory in enumerate(factories):
-        capacity = FACTORY_CAPACITIES[factory]
+        capacity = factory_capacities[factory]
         if factory == 'F3':
             capacity = real_order_counts[i] + simulated_order_counts[i] + 3000
         
@@ -340,8 +344,8 @@ print_order_statistics(orders_t_minus_1, "-12")
 print_order_statistics(orders_t, "-11")
 
 # Perform allocation for day t-1 and day t
-allocation_t_minus_1 = allocate_orders(orders_t_minus_1, FACTORY_CAPACITIES)
-allocation_t = allocate_orders(orders_t, FACTORY_CAPACITIES)
+allocation_t_minus_1 = allocate_orders(orders_t_minus_1, factory_capacities)
+allocation_t = allocate_orders(orders_t, factory_capacities)
 
 # Plot allocations
 plot_allocation(allocation_t_minus_1, '-12')
@@ -356,7 +360,7 @@ start_time = time.time()
 optimized_allocation_t, optimized_wmape_site = iterative_targeted_pairwise_swap(
     allocation_t_minus_1, 
     allocation_t, 
-    FACTORY_CAPACITIES, 
+    factory_capacities, 
     max_iterations=1500
 )
 end_time = time.time()
