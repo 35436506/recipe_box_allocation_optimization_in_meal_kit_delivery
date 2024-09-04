@@ -1,6 +1,11 @@
 import random
-import time
 import matplotlib.pyplot as plt
+import openpyxl
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
+
+# Set random seed for reproducibility
+random.seed(42)
 
 # Define the recipes with their eligibility
 recipes_f1_only = list(range(1, 30))
@@ -83,26 +88,6 @@ def generate_orders_for_day(real_proportion, simulated_proportion, existing_real
     
     return orders
 
-def allocate_orders(orders, factory_capacities):
-    allocation = {factory: [] for factory in factory_capacities}
-    remaining_orders = orders.copy()
-
-    # Allocate to F1 first, prioritizing F1,F3 and F1,F2,F3 orders
-    f1_eligible = sorted([order for order in remaining_orders if 'F1' in order['eligible_factories']],
-                         key=lambda x: len(x['eligible_factories']))  # Prioritize F1,F3 over F1,F2,F3
-    allocation['F1'] = f1_eligible[:factory_capacities['F1']]
-    remaining_orders = [order for order in remaining_orders if order not in allocation['F1']]
-
-    # Allocate to F2, using remaining F1,F2,F3 orders and F2,F3 orders
-    f2_eligible = [order for order in remaining_orders if 'F2' in order['eligible_factories']]
-    allocation['F2'] = f2_eligible[:factory_capacities['F2']]
-    remaining_orders = [order for order in remaining_orders if order not in allocation['F2']]
-
-    # Allocate remaining to F3
-    allocation['F3'] = remaining_orders
-
-    return allocation
-
 def get_recipe_counts(allocation, by_factory=False):
     if by_factory:
         recipe_counts = {factory: {} for factory in allocation}
@@ -132,7 +117,7 @@ def calculate_total_abs_diff(recipe_counts_t_minus_1, recipe_counts_t):
     
     return total_abs_diff
 
-def tabu_search(allocation_t_minus_1, allocation_t, factory_capacities, max_iterations=100):
+def tabu_search(allocation_t_minus_1, allocation_t, factory_capacities, max_iterations=500):
     current_allocation = {factory: orders[:] for factory, orders in allocation_t.items()}
     recipe_counts_t_minus_1 = get_recipe_counts(allocation_t_minus_1, by_factory=True)
     current_recipe_counts = get_recipe_counts(current_allocation, by_factory=True)
@@ -220,26 +205,54 @@ def tabu_search(allocation_t_minus_1, allocation_t, factory_capacities, max_iter
 
     return best_allocation, best_wmape_site
 
+def allocate_orders(orders, factory_capacities):
+    allocation = {factory: [] for factory in factory_capacities}
+    remaining_orders = orders.copy()
+    f1_eligible = sorted([order for order in remaining_orders if 'F1' in order['eligible_factories']],
+                         key=lambda x: len(x['eligible_factories']))
+    allocation['F1'] = [order for order in f1_eligible[:factory_capacities['F1']]]
+    remaining_orders = [order for order in remaining_orders if order not in allocation['F1']]
+    f2_eligible = [order for order in remaining_orders if 'F2' in order['eligible_factories']]
+    allocation['F2'] = [order for order in f2_eligible[:factory_capacities['F2']]]
+    remaining_orders = [order for order in remaining_orders if order not in allocation['F2']]
+    allocation['F3'] = remaining_orders
+    return allocation
+
+def allocate_orders_ID_based(orders, factory_capacities, previous_allocation):
+    allocation = {factory: [] for factory in factory_capacities}
+    
+    # First, allocate real orders to their previous factories
+    for factory, prev_orders in previous_allocation.items():
+        for order in prev_orders:
+            if order['is_real'] and order['id'] in [o['id'] for o in orders]:
+                allocation[factory].append(next(o for o in orders if o['id'] == order['id']))
+    
+    # Remove allocated orders from the list
+    remaining_orders = [order for order in orders if order not in sum(allocation.values(), [])]
+    
+    # Allocate remaining orders using the original allocate_orders function
+    remaining_allocation = allocate_orders(remaining_orders, {
+        factory: capacity - len(allocation[factory])
+        for factory, capacity in factory_capacities.items()
+    })
+    
+    # Combine allocations
+    for factory in allocation:
+        allocation[factory].extend(remaining_allocation[factory])
+    
+    return allocation
+
 def calculate_wmape_site(allocation_t_minus_1, allocation_t):
     recipe_counts_t_minus_1 = get_recipe_counts(allocation_t_minus_1, by_factory=True)
     recipe_counts_t = get_recipe_counts(allocation_t, by_factory=True)
     
-    all_recipes = set(recipe_counts_t_minus_1['F1'].keys()) | set(recipe_counts_t_minus_1['F2'].keys()) | set(recipe_counts_t_minus_1['F3'].keys()) | \
-                  set(recipe_counts_t['F1'].keys()) | set(recipe_counts_t['F2'].keys()) | set(recipe_counts_t['F3'].keys())
+    total_abs_diff = calculate_total_abs_diff(recipe_counts_t_minus_1, recipe_counts_t)
+    total_items_t = sum(sum(counts.values()) for counts in recipe_counts_t.values())
     
-    total_abs_diff = 0
-    total_items_t = 0
-    
-    for recipe_id in all_recipes:
-        for factory in ['F1', 'F2', 'F3']:
-            t_minus_1_count = recipe_counts_t_minus_1[factory].get(recipe_id, 0)
-            t_count = recipe_counts_t[factory].get(recipe_id, 0)
-            total_abs_diff += abs(t_count - t_minus_1_count)
-            total_items_t += t_count
-    
-    wmape_site = total_abs_diff / total_items_t if total_items_t > 0 else float('inf')
-    
-    return wmape_site
+    if total_items_t == 0:
+        return float('inf')
+    else:
+        return total_abs_diff / total_items_t
 
 def calculate_wmape_global(allocation_t_minus_1, allocation_t):
     recipe_counts_t_minus_1 = get_recipe_counts(allocation_t_minus_1)
@@ -247,106 +260,104 @@ def calculate_wmape_global(allocation_t_minus_1, allocation_t):
     
     all_recipes = set(recipe_counts_t_minus_1.keys()) | set(recipe_counts_t.keys())
     
-    total_abs_diff = 0
-    total_t_items = sum(recipe_counts_t.values())
+    total_abs_diff = sum(abs(recipe_counts_t.get(recipe_id, 0) - recipe_counts_t_minus_1.get(recipe_id, 0)) for recipe_id in all_recipes)
+    total_items_t = sum(recipe_counts_t.values())
     
-    for recipe_id in all_recipes:
-        t_minus_1_count = recipe_counts_t_minus_1.get(recipe_id, 0)
-        t_count = recipe_counts_t.get(recipe_id, 0)
-        total_abs_diff += abs(t_count - t_minus_1_count)
+    if total_items_t == 0:
+        return float('inf')
+    else:
+        return total_abs_diff / total_items_t
     
-    wmape_global = total_abs_diff / total_t_items if total_t_items > 0 else float('inf')
+def run_allocation_process_over_time(start_day, end_day, total_orders):
+    allocations_tabu = {}
+    allocations_ID_based = {}
+    wmape_site_values_tabu = []
+    wmape_site_values_ID_based = []
+    wmape_global_values_tabu = []
+    real_orders_proportions = []
+    previous_real_orders = None
     
-    return wmape_global
+    for day in range(start_day, end_day + 1):
+        real_proportion = min(1.0, max(0.1, 0.1 + (0.9 / 15) * (18 + day)))
+        simulated_proportion = 1 - real_proportion
+        
+        orders = generate_orders_for_day(real_proportion, simulated_proportion, previous_real_orders)
+        
+        allocation_initial = allocate_orders(orders, factory_capacities)
+        
+        if day == start_day:
+            allocation_tabu, _ = tabu_search({f: [] for f in factory_capacities}, allocation_initial, factory_capacities)
+            allocation_ID_based = allocation_initial
+            allocations_tabu[day] = allocation_tabu
+            allocations_ID_based[day] = allocation_ID_based
+        else:
+            allocation_tabu, wmape_site_tabu = tabu_search(allocations_tabu[day-1], allocation_initial, factory_capacities)
+            allocation_ID_based = allocate_orders_ID_based(orders, factory_capacities, allocations_ID_based[day-1])
+            
+            wmape_site_values_tabu.append(wmape_site_tabu)
+            wmape_site_ID_based = calculate_wmape_site(allocations_ID_based[day-1], allocation_ID_based)
+            wmape_site_values_ID_based.append(wmape_site_ID_based)
+            
+            wmape_global_tabu = calculate_wmape_global(allocations_tabu[day-1], allocation_tabu)
+            wmape_global_values_tabu.append(wmape_global_tabu)
+        
+        allocations_tabu[day] = allocation_tabu
+        allocations_ID_based[day] = allocation_ID_based
+        real_orders_proportions.append(len([o for o in orders if o['is_real']]) / total_orders)
+        previous_real_orders = [order for order in orders if order['is_real']]
+    
+    return wmape_site_values_tabu, wmape_site_values_ID_based, wmape_global_values_tabu, real_orders_proportions, allocations_tabu, allocations_ID_based
 
-def test_ts_iterations(allocation_t_minus_1, allocation_t, factory_capacities, max_iterations_list):
-    results = []
+def plot_wmape_comparison(days, wmape_site_tabu, wmape_site_ID_based, wmape_global_tabu):
+    plt.figure(figsize=(14, 8))
     
-    for max_iterations in max_iterations_list:
-        start_time = time.time()
-        optimized_allocation, optimized_wmape_site = tabu_search(
-            allocation_t_minus_1, 
-            allocation_t, 
-            factory_capacities, 
-            max_iterations=max_iterations
-        )
-        end_time = time.time()
-        optimization_time = end_time - start_time
-        results.append((max_iterations, optimized_wmape_site, optimization_time))
+    plt.plot(days[1:], wmape_site_tabu, color='tab:red', marker='o', linestyle='-', label='WMAPE site (TS)')
+    plt.plot(days[1:], wmape_site_ID_based, color='tab:blue', marker='s', linestyle='-', label='WMAPE site (ID-based)')
+    plt.plot(days[1:], wmape_global_tabu, color='tab:green', marker='^', linestyle='--', label='WMAPE global')
     
-    return results
-
-def plot_iteration_results(results, initial_wmape_site, wmape_global):
-    iterations, wmape_site_values, times = zip(*results)
-    
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-    
-    ax1.plot(iterations, wmape_site_values, marker='o', label='WMAPE site')
-    ax1.axhline(y=wmape_global, color='r', linestyle='--', label='WMAPE global')
-    ax1.set_ylabel('WMAPE')
-    ax1.set_title('WMAPE site vs. Number of iterations (TS)')
-    ax1.legend()
-    ax1.grid(True)
-    
-    # Adjust y-axis limits to focus more tightly on the data range
-    y_min = min(min(wmape_site_values), wmape_global) * 0.999  # 0.1% below the minimum value
-    y_max = max(max(wmape_site_values), wmape_global) * 1.001  # 0.1% above the maximum value
-    ax1.set_ylim(y_min, y_max)
-    ax1.set_xlim(left=0)
-    
-    ax2.plot(iterations, times, marker='s')
-    ax2.set_xlabel('Number of iterations')
-    ax2.set_ylabel('Optimization time (seconds)')
-    ax2.set_title('Optimization time vs. Number of iterations (TS)')
-    ax2.grid(True)
-    ax2.set_ylim(bottom=0)
-    
+    plt.xlabel('Days to delivery')
+    plt.ylabel('WMAPE')
+    plt.title('WMAPE comparison: TS vs ID-based (Without order changes)', pad=20, fontsize=14)
+    plt.legend()
+    plt.grid(True)
     plt.tight_layout()
     plt.show()
+    
+def export_wmape_data_to_excel(filename, days, wmape_site_tabu, wmape_site_ID_based, wmape_global_tabu):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "WMAPE comparison"
 
-# Main execution code (day t-1 is LD12, day t is LD11)
-orders_day_t_minus_1 = generate_orders_for_day(0.46, 0.54)
-real_orders_day_t_minus_1 = [order for order in orders_day_t_minus_1 if order['is_real']]
+    # Add headers
+    headers = ["Days to delivery", "WMAPE site (TS)", "WMAPE site (ID-based)", "WMAPE global"]
+    for col, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
 
-orders_day_t = generate_orders_for_day(0.52, 0.48, existing_real_orders=real_orders_day_t_minus_1)
+    # Add data
+    for row, day in enumerate(days[1:], start=2):
+        ws.cell(row=row, column=1, value=day)
+        ws.cell(row=row, column=2, value=wmape_site_tabu[row-2])
+        ws.cell(row=row, column=3, value=wmape_site_ID_based[row-2])
+        ws.cell(row=row, column=4, value=wmape_global_tabu[row-2])
 
-allocation_day_t_minus_1 = allocate_orders(orders_day_t_minus_1, factory_capacities)
-allocation_day_t = allocate_orders(orders_day_t, factory_capacities)
+    # Adjust column widths
+    for col in range(1, 5):
+        ws.column_dimensions[get_column_letter(col)].width = 20
 
-# Calculate initial WMAPE site and WMAPE global
-initial_wmape_site = calculate_wmape_site(allocation_day_t_minus_1, allocation_day_t)
-wmape_global = calculate_wmape_global(allocation_day_t_minus_1, allocation_day_t)
+    wb.save(filename)
 
-# Define the list of iteration counts to test
-iteration_counts = [100, 500, 1000, 1500, 2000]
+# Update the main execution code:
+# Main execution code
+start_day = -18
+end_day = -3
 
-results = test_ts_iterations(
-    allocation_day_t_minus_1,
-    allocation_day_t,
-    factory_capacities,
-    iteration_counts
-)
+wmape_site_tabu, wmape_site_ID_based, wmape_global_tabu, real_orders_proportions, allocations_tabu, allocations_ID_based = run_allocation_process_over_time(start_day, end_day, total_orders)
 
-plot_iteration_results(results, initial_wmape_site, wmape_global)
+days = list(range(start_day, end_day + 1))
 
-# Find the best result
-best_result = min(results, key=lambda x: x[1])
-best_iterations, best_wmape_site, best_time = best_result
+# Plot WMAPE comparison
+plot_wmape_comparison(days, wmape_site_tabu, wmape_site_ID_based, wmape_global_tabu)
 
-print(f"\nInitial WMAPE site: {initial_wmape_site:.4f}")
-print(f"WMAPE global: {wmape_global:.4f}")
-print(f"Best WMAPE site: {best_wmape_site:.4f} (achieved with {best_iterations} iterations)")
-print(f"WMAPE site improvement: {(initial_wmape_site - best_wmape_site) / initial_wmape_site * 100:.2f}%")
-print(f"Time taken for best result: {best_time:.2f} seconds")
-print('                               ')
-
-# Print all results
-print("{:<10} | {:<18} | {:<20} | {:<26} | {:<12} | {:<15}".format(
-    "Iterations", "Initial WMAPE site", "Optimized WMAPE site", "WMAPE site improvement (%)", "WMAPE global", "Time (seconds)"
-))
-print("-" * 110)
-for iterations, wmape_site, time_taken in results:
-    wmape_site_improvement = (initial_wmape_site - wmape_site) / initial_wmape_site * 100
-    print("{:<10d} | {:<18.4f} | {:<20.4f} | {:<26.2f} | {:<12.4f} | {:<15.2f}".format(
-        iterations, initial_wmape_site, wmape_site, wmape_site_improvement, wmape_global, time_taken
-    ))
+# Export WMAPE data to Excel
+export_wmape_data_to_excel("ID vs TS (no order changes).xlsx", days, wmape_site_tabu, wmape_site_ID_based, wmape_global_tabu)

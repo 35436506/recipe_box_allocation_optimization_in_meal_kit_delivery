@@ -263,7 +263,7 @@ def test_itps_iterations(allocation_t_minus_1, allocation_t, factory_capacities,
 def plot_iteration_results(results, initial_wmape_site, wmape_global):
     iterations, wmape_site_values, times = zip(*results)
     
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
     
     ax1.plot(iterations, wmape_site_values, marker='o', label='WMAPE site')
     ax1.axhline(y=wmape_global, color='r', linestyle='--', label='WMAPE global')
@@ -272,11 +272,30 @@ def plot_iteration_results(results, initial_wmape_site, wmape_global):
     ax1.legend()
     ax1.grid(True)
     
+    # Adjust y-axis limits to focus more tightly on the data range
+    y_min = min(min(wmape_site_values), wmape_global) * 0.999  # 0.1% below the minimum value
+    y_max = max(max(wmape_site_values), wmape_global) * 1.001  # 0.1% above the maximum value
+    ax1.set_ylim(y_min, y_max)
+    
+    # Set x-axis ticks and labels for WMAPE plot
+    ax1.set_xticks(iterations)
+    ax1.set_xticklabels(iterations)
+    
     ax2.plot(iterations, times, marker='s')
     ax2.set_xlabel('Number of iterations')
     ax2.set_ylabel('Optimization time (seconds)')
     ax2.set_title('Optimization time vs. Number of iterations (ITPS)')
     ax2.grid(True)
+    ax2.set_ylim(bottom=0)
+    
+    # Set x-axis limits and ticks for both plots
+    min_iterations = min(iterations)
+    max_iterations = max(iterations)
+    x_padding = (max_iterations - min_iterations) * 0.05  # 5% padding
+    ax1.set_xlim(min_iterations - x_padding, max_iterations + x_padding)
+    ax2.set_xlim(min_iterations - x_padding, max_iterations + x_padding)
+    ax2.set_xticks(iterations)
+    
     plt.tight_layout()
     plt.show()
 
