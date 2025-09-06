@@ -16,22 +16,22 @@ The LaTeX source files for the manuscript can be accessed and viewed on Overleaf
 
 ## Repository structure
 
-### **01. Benchmark test (B&B, ITPS, TS)**
+### **1. Benchmark test (B&B, ITPS, TS)**
 Scripts to reproduce the benchmark comparison of the CBC (B&B) solver, ITPS, and TS heuristics on a 10,000-order instance.
 
-### **02. Iteration test (ITPS, TS)**
+### **2. Iteration test (ITPS, TS)**
 Code used to determine the optimal number of iterations for the ITPS and TS heuristic methods.
 
-### **03. Scalability test (B&B, ITPS, TS)**
+### **3. Scalability test (B&B, ITPS, TS)**
 Scripts to evaluate and compare the performance and optimisation time of all three methods across varying problem sizes (10,000–100,000 orders).
 
-### **04. Temporal fixed test (B&B, TS)**
+### **4. Temporal fixed test (B&B, TS)**
 Runs the temporal analysis over a 15-day planning horizon under stable, idealised conditions (fixed capacity and orders).
 
-### **05. Temporal variation test (B&B, TS)**
+### **5. Temporal variation test (B&B, TS)**
 Scripts to reproduce the temporal analysis under dynamic, real-world conditions, including sudden changes in factory capacity and daily modifications to customer orders.
 
-### **Figures**
+### **6. Figures**
 All figures included in the article.
 
 ---
