@@ -10,8 +10,7 @@ This case study demonstrates how exact optimisation methods can provide highly e
 
 ## Manuscript
 
-The LaTeX source files for the manuscript can be accessed and viewed on Overleaf:  
-[Manuscript on Overleaf](https://www.overleaf.com/read/kkhtrxzdmtfd#9f0ecc)
+The LaTeX source files for the manuscript can be accessed and viewed on Overleaf: [Manuscript on Overleaf](https://www.overleaf.com/read/kkhtrxzdmtfd#9f0ecc)
 
 ---
 
