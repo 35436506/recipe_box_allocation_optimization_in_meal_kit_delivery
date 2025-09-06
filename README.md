@@ -31,9 +31,6 @@ Runs the temporal analysis over a 15-day planning horizon under stable, idealise
 ### **5. Temporal variation test (B&B, TS)**
 Scripts to reproduce the temporal analysis under dynamic, real-world conditions, including sudden changes in factory capacity and daily modifications to customer orders.
 
-### **6. Figures**
-All figures included in the article.
-
 ---
 
 ## Requirements to run code
