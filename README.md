@@ -1,6 +1,6 @@
 # Box Allocation Optimization in Meal Kit Delivery
 
-This project introduces the **Box Allocation Problem (BAP)**, a novel optimisation challenge within the UK meal kit delivery industry. Faced with complex operational demands, companies must efficiently assign customer orders across multiple production facilities over a planning horizon. This research provides a data-driven framework to guide these decisions, aiming to stabilize daily production, reduce food waste, and improve ingredient forecasting.
+This project introduces the **Box Allocation Problem (BAP)**, a novel optimization challenge within the UK meal kit delivery industry. Faced with complex operational demands, companies must efficiently assign customer orders across multiple production facilities over a planning horizon. This research provides a data-driven framework to guide these decisions, aiming to stabilize daily production, reduce food waste, and improve ingredient forecasting.
 
 At the core of this project is a **Mixed-Integer Linear Programming (MILP)** model that minimizes day-to-day variation in recipe allocations. The model is solved using the **open-source CBC solver** and systematically benchmarked against heuristic methods, including **Tabu Search (TS)** and **Iterative Targeted Pairwise Swap (ITPS)**.
 
