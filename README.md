@@ -14,21 +14,21 @@ The LaTeX source files for the manuscript can be accessed and viewed on Overleaf
 
 ---
 
-## Repository Structure
+## Repository structure
 
-### **01_Benchmark test (B&B, ITPS, TS)**
+### **01. Benchmark test (B&B, ITPS, TS)**
 Scripts to reproduce the benchmark comparison of the CBC (B&B) solver, ITPS, and TS heuristics on a 10,000-order instance.
 
-### **02_Iteration test (ITPS, TS)**
+### **02. Iteration test (ITPS, TS)**
 Code used to determine the optimal number of iterations for the ITPS and TS heuristic methods.
 
-### **03_Scalability test (B&B, ITPS, TS)**
+### **03. Scalability test (B&B, ITPS, TS)**
 Scripts to evaluate and compare the performance and optimisation time of all three methods across varying problem sizes (10,000–100,000 orders).
 
-### **04_Temporal fixed test (B&B, TS)**
+### **04. Temporal fixed test (B&B, TS)**
 Runs the temporal analysis over a 15-day planning horizon under stable, idealised conditions (fixed capacity and orders).
 
-### **05_Temporal variation test (B&B, TS)**
+### **05. Temporal variation test (B&B, TS)**
 Scripts to reproduce the temporal analysis under dynamic, real-world conditions, including sudden changes in factory capacity and daily modifications to customer orders.
 
 ### **Figures**
@@ -36,10 +36,10 @@ All figures included in the article.
 
 ---
 
-## Requirements to Run Code
+## Requirements to run code
 
 - **Python** ≥ 3.8  
 - **COIN-OR Branch and Cut (CBC) Solver** — Open-source MILP solver  
-- **Pyomo** / **PuLP** — Optimisation modelling libraries  
+- **PuLP** — Optimisation modelling libraries  
 - **pandas**, **NumPy** — Data handling and manipulation  
 - **Matplotlib** — Generating plots and figures  
