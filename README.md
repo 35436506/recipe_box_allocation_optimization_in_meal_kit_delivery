@@ -1,10 +1,10 @@
 # Box Allocation Optimization in Meal Kit Delivery
 
-This project introduces the **Box Allocation Problem (BAP)**, a novel optimisation challenge within the UK meal kit delivery industry. Faced with complex operational demands, companies must efficiently assign customer orders across multiple production facilities over a planning horizon. This research provides a data-driven framework to guide these decisions, aiming to stabilise daily production, reduce food waste, and improve ingredient forecasting.
+This project introduces the **Box Allocation Problem (BAP)**, a novel optimisation challenge within the UK meal kit delivery industry. Faced with complex operational demands, companies must efficiently assign customer orders across multiple production facilities over a planning horizon. This research provides a data-driven framework to guide these decisions, aiming to stabilize daily production, reduce food waste, and improve ingredient forecasting.
 
-At the core of this project is a **Mixed-Integer Linear Programming (MILP)** model that minimises day-to-day variation in recipe allocations. The model is solved using the **open-source CBC solver** and systematically benchmarked against heuristic methods, including **Tabu Search (TS)** and **Iterative Targeted Pairwise Swap (ITPS)**.
+At the core of this project is a **Mixed-Integer Linear Programming (MILP)** model that minimizes day-to-day variation in recipe allocations. The model is solved using the **open-source CBC solver** and systematically benchmarked against heuristic methods, including **Tabu Search (TS)** and **Iterative Targeted Pairwise Swap (ITPS)**.
 
-This case study demonstrates how exact optimisation methods can provide highly efficient and robust solutions for complex, large-scale supply chain challenges, **outperforming common heuristics in both solution quality and computational time**.
+This case study demonstrates how exact optimization methods can provide highly efficient and robust solutions for complex, large-scale supply chain challenges, **outperforming common heuristics in both solution quality and computational time**.
 
 ---
 
@@ -23,7 +23,7 @@ Scripts to reproduce the benchmark comparison of the CBC (B&B) solver, ITPS, and
 Code used to determine the optimal number of iterations for the ITPS and TS heuristic methods.
 
 ### **3. Scalability test (B&B, ITPS, TS)**
-Scripts to evaluate and compare the performance and optimisation time of all three methods across varying problem sizes (10,000–100,000 orders).
+Scripts to evaluate and compare the performance and optimization time of all three methods across varying problem sizes (10,000–100,000 orders).
 
 ### **4. Temporal fixed test (B&B, TS)**
 Runs the temporal analysis over a 15-day planning horizon under stable, idealised conditions (fixed capacity and orders).
@@ -40,6 +40,6 @@ All figures included in the article.
 
 - **Python** ≥ 3.8  
 - **COIN-OR Branch and Cut (CBC) Solver** — Open-source MILP solver  
-- **PuLP** — Optimisation modelling libraries  
+- **PuLP** — Optimization modelling libraries  
 - **pandas**, **NumPy** — Data handling and manipulation  
 - **Matplotlib** — Generating plots and figures  
